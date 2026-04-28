@@ -5,7 +5,8 @@
 let travelPrice = 0.000001;
 let maxStorePrice = 25;
 let storeIDCounter = 0;
-let storesShuttingDownIsBadCampaign = {politicalPositions: [25], cats: []};
+let storesShuttingDownIsBadCampaign = {politicalPositions: [20], cats: []};
+let week = 0;
 
 function randomLocation(){
     return [Math.random()*1000000, Math.random()*1000000];
@@ -25,7 +26,7 @@ for (let i=0; i<2000; i++) {
         formerStoreOwner: false
     }
     if (Math.random() < 1/20) {
-        let store = {id: storeIDCounter, type: "store", location: cat.location, owner: cat, price: Math.random()*20+10, profit: 0, customers: 0};
+        let store = {id: storeIDCounter, type: "store", location: cat.location, owner: cat, price: Math.random()*20+10, profit: 0, sales: 0, profitByWeek: [], priceByWeek: []};
         cat.jobs.push(store);
         stores.push(store);
         cat.politicalPositions[0] = store.price;
@@ -47,7 +48,7 @@ function simulateWeek(){
         let price = Math.sqrt(getDistSquared(...cat.location, ...store.location))*travelPrice*2 + store.price;
         cat.money -= price;
         store.profit += price-13;
-        store.customers ++;
+        store.sales ++;
         if (cat.favoriteStorePrice > price || cat.favoriteStorePrice == undefined) {
             cat.favoriteStore = store;
         }
@@ -55,8 +56,25 @@ function simulateWeek(){
             cat.favoriteStorePrice = price;
         }
         if (cat.jobs.length == 1) {
-            cat.money += cat.jobs[0].profit;
-            cat.jobs[0].profit = 0;
+            let catsStore = cat.jobs[0];
+            cat.money += catsStore.profit;
+            catsStore.profitByWeek.push(catsStore.profit);
+            catsStore.priceByWeek.push(catsStore.price);
+            catsStore.profit = 0;
+            if (catsStore.priceByWeek.length > 2) {
+                let profitChange = catsStore.profitByWeek[week]-catsStore.profitByWeek[week-1];
+                if ((catsStore.priceByWeek[week] > catsStore.priceByWeek[week-1] && profitChange >= 0) || (catsStore.priceByWeek[week] < catsStore.priceByWeek[week-1] && profitChange <= 0)) {
+                    catsStore.price ++;
+                } else {
+                    catsStore.price --;
+                }
+            } else {
+                if (Math.random() < 0.5) {
+                    catsStore.price ++;
+                } else {
+                    catsStore.price --;
+                }
+            }
         } else {
             cat.money += 15;
         }
@@ -79,10 +97,13 @@ function simulateWeek(){
                 average /= numbersAveraged;
                 cat.politicalPositions[0] = (cat.politicalPositions[0]+average)/2;
             }
+            if (Math.random() < 0.2) {
+                cat.politicalPositions[0] = cat.politicalPositions[0]*0.8+cats[Math.floor(Math.random()*cats.length)].politicalPositions[0]*0.2;
+            }
         }
-        if (cat.money < 0) {
+        if (cat.money < 30) {
             if (cat.jobs.length == 1) {
-                cat.jobs[0].price -= cat.money*5/cat.jobs[0].customers;
+                cat.jobs[0].price -= cat.money*5/cat.jobs[0].sales;
                 cat.politicalPositions[0] = cat.jobs[0].price;
                 tellCustomersToSupportPrice(cat.jobs[0]);
                 storesShuttingDownIsBadCampaignAddCat(cat);
@@ -93,7 +114,13 @@ function simulateWeek(){
                 cat.politicalPositions[0] -= 0.5;
             }
         }
+        if (cat.formerStoreOwner && cat.politicalPositions[0] < 13) {
+            cat.politicalPositions[0] = 13;
+        } else if (cat.politicalPositions[0] < 10) {
+            cat.politicalPositions[0] = 10;
+        }
     }
+    week ++;
 }
 
 function storesShuttingDownIsBadCampaignAddCat(cat){
@@ -108,7 +135,7 @@ function storesShuttingDownIsBadCampaignAddCat(cat){
     if (newMember) {
         storesShuttingDownIsBadCampaign.cats.push(cat);
         for (let i=0; i<cats2.length; i++) {
-            if (cats2[i].politicalPositions[0] < 13) {
+            if (cats2[i].politicalPositions[0] < 10) {
                 cats2.splice(i, 1);
                 i --;
             }
@@ -181,7 +208,7 @@ for (let ii=0; ii<50; ii++) {
         state.rep = getWinnerPluralityVote(state.cats, candidates).winner;
         reps.push(state.rep);
     }
-    let winner = getWinnerPluralityVote(reps, [{politicalPositions: [maxStorePrice]}, {politicalPositions: [maxStorePrice+Math.floor(Math.random()*11)-5]}]);
+    let winner = getWinnerPluralityVote(reps, [{politicalPositions: [maxStorePrice]}, {politicalPositions: [reps[Math.floor(Math.random()*reps.length)].politicalPositions[0]]}]);
         maxStorePrice = winner.winner.politicalPositions[0];
     if (maxStorePrice < 0) {
         maxStorePrice = 0;
